@@ -1,0 +1,80 @@
+name: Update formula
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"  # every 6 hours
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for new version
+        id: check
+        run: |
+          # Get latest version from PyPI
+          LATEST=$(curl -s https://pypi.org/pypi/parro/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])")
+          # Get current version from formula
+          CURRENT=$(grep -oP 'parro-\K[0-9.]+(?=\.tar\.gz)' Formula/parro.rb)
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          if [ "$LATEST" != "$CURRENT" ]; then
+            echo "update=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "update=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Current: $CURRENT, Latest: $LATEST"
+
+      - name: Update formula
+        if: steps.check.outputs.update == 'true'
+        run: |
+          VERSION="${{ steps.check.outputs.latest }}"
+          # Get sdist URL and SHA256 from PyPI
+          eval $(curl -s "https://pypi.org/pypi/parro/${VERSION}/json" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          for u in data['urls']:
+              if u['packagetype'] == 'sdist':
+                  print(f\"URL={u['url']}\")
+                  print(f\"SHA={u['digests']['sha256']}\")
+                  break
+          ")
+
+          # Update formula
+          cat > Formula/parro.rb << EOF
+          class Parro < Formula
+            include Language::Python::Virtualenv
+
+            desc "CLI for the Parro school communication platform"
+            homepage "https://github.com/anneschuth/parro-cli"
+            url "${URL}"
+            sha256 "${SHA}"
+            license "MIT"
+
+            depends_on "python@3.13"
+
+            def install
+              virtualenv_install_with_resources(extra_pip_args: ["--extra-index-url", "https://pypi.org/simple"])
+              system libexec/"bin/pip", "install", "parro[cli]==#{version}"
+            end
+
+            test do
+              assert_match "parro", shell_output("#{bin}/parro --help")
+            end
+          end
+          EOF
+          # Remove leading whitespace from heredoc
+          sed -i 's/^          //' Formula/parro.rb
+
+      - name: Commit and push
+        if: steps.check.outputs.update == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/parro.rb
+          git commit -m "chore: update parro to ${{ steps.check.outputs.latest }}"
+          git push
