@@ -3,8 +3,8 @@ class Parro < Formula
 
   desc "CLI for the Parro school communication platform"
   homepage "https://github.com/anneschuth/parro-cli"
-  url "https://files.pythonhosted.org/packages/47/ae/91f71d2307efdb9f595284994753f0cb1bf49548489f1a5c6cdcaa7906c2/parro-1.0.3.tar.gz"
-  sha256 "3635699c528c6d1d2dde83c1bf28e4a5a576cf24ffdf18a19c908b2f09470ce8"
+  url "https://files.pythonhosted.org/packages/51/83/51bfc2949beafe59d5cff867c88ef1cc393f0becc6411eace02d56082614/parro-1.1.0.tar.gz"
+  sha256 "82817afd2ab71e01f0d4e0e0865487f03aaeec98143ed0667e806e199d093c0a"
   license "MIT"
 
   depends_on "python@3.13"
